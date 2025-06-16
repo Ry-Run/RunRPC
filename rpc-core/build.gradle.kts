@@ -4,7 +4,7 @@ plugins {
 
 dependencies {
 	"implementation"(libs.netty.all)
-	"implementation"(libs.protostuff.core)
+	"implementation"(libs.protobuf.core)
 	"implementation"(libs.zookeeper)
 	"implementation"(libs.curator.framework)
 }

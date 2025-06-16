@@ -1,7 +1,8 @@
 [versions]
 kotlin = "1.9.25"
 netty = "4.2.2.Final"
-protostuff = "1.8.0"
+protobuf = "4.31.1"
+protobuf-plugin = "0.9.5"
 zookeeper = "3.9.0"
 curator = "5.8.0"
 junit = "5.10.0"
@@ -14,7 +15,7 @@ kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", versi
 
 # 网络与工具
 netty-all = { module = "io.netty:netty-all", version.ref = "netty" }
-protostuff-core = { module = "io.protostuff:protostuff-core", version.ref = "protostuff" }
+protobuf-core = { module = "com.google.protobuf:protobuf-kotlin", version.ref = "protobuf" }
 zookeeper = { module = "org.apache.zookeeper:zookeeper", version.ref = "zookeeper" }
 curator-framework = { module = "org.apache.curator:curator-framework", version.ref = "curator" }
 
@@ -24,3 +25,5 @@ junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+# 编译项目的 protobuf，插件用 Gradle 插件 ID，而不是 Maven 坐标（是依赖管理使用）
+protobuf-plugin = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }
