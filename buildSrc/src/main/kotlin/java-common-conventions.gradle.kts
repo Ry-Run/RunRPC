@@ -1,5 +1,8 @@
+import pers.lr.runrpc.libs
+
 plugins {
     id("com.diffplug.spotless")
+    id("java-library")
 }
 
 repositories {
@@ -8,10 +11,10 @@ repositories {
 
 // 子项目公共依赖
 dependencies {
-    implementation("org.jetbrains.kotlin:kotlin-reflect") version "1.9.25"
-    implementation("org.jetbrains.kotlin:kotlin-test-junit5") version "1.9.25"
-    implementation("org.junit.jupiter:junit-jupiter") version "5.10.0"
-    implementation("org.junit.platform:junit-platform-launcher") version "5.10.0"
+    "implementation"(libs.findLibrary("kotlin.reflect").get())
+    "implementation"(libs.findLibrary("kotlin.test.junit5").get())
+    "implementation"(libs.findLibrary("junit.jupiter").get())
+    "implementation"(libs.findLibrary("junit.platform.launcher").get())
 }
 
 java {

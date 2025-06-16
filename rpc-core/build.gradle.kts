@@ -7,8 +7,4 @@ dependencies {
 	"implementation"(libs.protostuff.core)
 	"implementation"(libs.zookeeper)
 	"implementation"(libs.curator.framework)
-
-	// 依赖其他模块
-	"implementation"(project(":rpc-protocol"))
-	"implementation"(project(":rpc-common"))
 }

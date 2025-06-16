@@ -4,5 +4,4 @@ plugins {
 
 dependencies {
     "implementation"(libs.protostuff.core)
-    "implementation"(project(":rpc-common"))
 }

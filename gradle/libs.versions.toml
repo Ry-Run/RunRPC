@@ -5,6 +5,7 @@ protostuff = "1.8.0"
 zookeeper = "3.9.0"
 curator = "5.8.0"
 junit = "5.10.0"
+launcher = "1.13.1"
 
 [libraries]
 # Kotlin
@@ -19,7 +20,7 @@ curator-framework = { module = "org.apache.curator:curator-framework", version.r
 
 # 测试
 junit-jupiter = { module = "org.junit.jupiter:junit-jupiter", version.ref = "junit" }
-junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "junit" }
+junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher", version.ref = "launcher" }
 
 [plugins]
 kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
