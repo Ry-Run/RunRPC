@@ -65,9 +65,9 @@ service FooService {
 
 ## 工程实践
 
-### 编译工程 proto 文件
+### 编译工程 proto 文件：
 
-Protobuf Plugin 做了两个事：
+[Protobuf 插件](https://github.com/google/protobuf-gradle-plugin)做了两个事：
 
 - 组织 Protobuf 编译器命令，生成 java 文件
 - 将生成的 java 源文件添加到 java 的编译单元，一起编译
@@ -89,15 +89,236 @@ plugins {
     // 引入插件
     alias(libs.plugins.protobuf.plugin)
 }
-
-
 ```
 
+配置 protobuf 插件
 
+Protobuf 插件假定 .proto 与 Java 源文件相同，均位于源集（sourceSets）中（如 main/test）。一个源集的所有 `.proto` 文件会被一次性编译，生成的 `java` 文件又作为该源集的 Java 编译任务的输入。该插件会为每个源集（`sourceSet`）新增名为 `proto` 的源码块（与 `java` 块同级），目录结构镜像：`src/main/java` ↔ `src/main/proto`。默认情况下，它会自动包含 `src/$sourceSetName/proto` 目录下的所有 `*.proto` 文件。
 
+可按照配置 Java 源码的相同方式自定义此设置。
 
+配置sourceSets的目的在于告诉插件proto文件的位置（引用外部协议库、需要排除特定文件）
 
+```kot
+sourceSets {
+    main {  // 主源集
+        proto {  // Protobuf 配置块
+            // 下面三个 srcDir 会扫描到，然后一起编译
+            // srcDir 'src/main/proto' // 默认目录
+            srcDir 'src/main/protobuf'         // 添加目录1
+            srcDir 'src/main/protocolbuffers'  // 添加目录2
 
+            // 默认使用 .proto 后缀，不要使用它以外的扩展名，原因：系统仅能通过扩展名识别文件类型
+            include '**/*.protodevel'          // 包含非标准扩展名文件，危险操作！
+            // 排除实验性协议
+            exclude 'experimental/**'
+        }
+        java {  // Java 源码块
+            ...   // 标准 Java 配置
+        }
+    }
+
+    test {   // 测试源集
+        proto {
+            // 在默认目录 'src/test/proto' 基础上添加
+            srcDir 'src/test/protocolbuffers'  // 测试专用 Proto 目录
+        }
+    }
+}
+```
+
+配置编译器
+
+```kotlin
+// 插件提供 protobuf 块，提供了所有的配置选项
+protobuf {
+    // 插件会查找系统中的 protoc 的可执行文件，建议直接从存储库下载
+    // 插件会自动检测操作系统和架构，下载匹配的二进制文件
+    // 配置 protobuf 编译器: protoc
+    protoc {
+        artifact = 'com.google.protobuf:protoc:3.0.0'
+        // path = '/usr/local/bin/protoc' // 也可以指定本地目录，注意多个赋值则最后一个有效
+    }
+}
+```
+
+插件的 `plugins` 块也可以配置远程下载的工件或者本地目录：
+
+```kotlin
+protobuf {
+  ...
+  // 定位代码生成插件
+  plugins {
+    // 定位 grpc 代码生成插件
+    // 如果项目中使用了 gRPC 服务定义（如 .proto 文件中包含 service 定义），但未配置 grpc 插件，构建时会报错
+    // 如果 grpc 为空，proto 会使用当前目录中的可执行文件
+    // 如果不指定工件 protoc 会使用系统搜索路径的 "protoc-gen-grpc"
+    grpc {
+      artifact = 'io.grpc:protoc-gen-grpc-java:1.0.0-pre2'
+      // 或者
+      // path = 'tools/protoc-gen-grpc-java'
+    }
+    // 其他插件
+    ...
+  }
+  ...
+}
+```
+
+Protobuf 插件为每个源集上运行的 protoc 生成一个任务。任务有配置的接口，允许去配置输出类型、代码生成插件的使用和一些参数。
+
+必须配置这些任务在 `generateProtoTasks` 块中，该块会提供代码生成器方法访问这些任务。同时也确保你的配置会被插件正确的设置。
+
+禁止事项：
+
+- 不要使用任务名，它们会改变
+- 不要配置任务在  `generateProtoTasks` 块外，因为在配置任务的时候，会有细微的时间方面的限制
+
+```kotlin
+protobuf {
+  ...
+  generateProtoTasks {
+    // all() 返回所有的 protoc 任务集合
+    all().configureEach { task ->
+      // 这里可以配置任务
+    }
+
+    // 除 all() 之外，还可以自行选择任务
+
+    // (仅 Java) 返回源集的任务
+    ofSourceSet('main')
+
+    // (仅 Android 的选择器)返回特定任务
+    ofFlavor('demo')
+    // 根据构建类型返回任务（单一构建类型 (如 debug/release)）
+    ofBuildType('release')
+    // 根据构建变体返回任务（完整构建变体 (如 freeDebug/paidRelease)）
+    ofVariant('demoRelease')
+    // 返回非安卓测试的任务
+    ofNonTest()
+    // 返回安卓测试的任务
+    ofTest()
+  }
+}
+```
+
+每个代码生成器任务有两个集合：
+
+- `builtins`：`protoc` 中内置的代码生成器,如 `java`, `cpp`, `python`.
+- `plugins`：和 `protoc` 一起工作的代码生成器插件，如 `grpc`。为了添加任务，它们必须定义在`protobuf.plugins` 块中。
+
+配置生成什么
+
+每个内置的/插件的代码生成器生成确定类型的代码。在任务中添加或配置内置/插件代码生成器，使用大括号 `{}` 列出它们的名字。把配置选项放入大括号中：
+
+```kotlin
+task.builtins {
+  // 在 protoc 最新版本中，这里的结果是在 protoc 命令行添加
+  // "--java_out=example_option1=true,example_option2:/path/to/output"
+  // 等于
+  // "--java_out=/path/to/output --java_opt=example_option1=true,example_option2"
+  java {
+    option 'example_option1=true'
+    option 'example_option2'
+  }
+}
+
+task.plugins {
+  // 添加 grpc 的输出，但不包括任何选项。protobuf 插件的 plugins 块中必须定义了 grpc 插件
+  // 这里的结果是在 protoc 命令行添加
+  // "--grpc_out=/path/to/output"
+  grpc { }
+}
+```
+
+默认输出：
+
+java 工程：内置的 java 代码生成器会默认添加，所以 build 时也会默认生成 class
+
+从 Protobuf 3.8.0 开始，lite code（轻量级代码）内置在 protoc 的 java 输出中，例如：
+
+```kotlin
+dependencies {
+  // 需要依赖 lite 的运行时库，而不是 protobuf-java
+  implementation 'com.google.protobuf:protobuf-javalite:3.8.0'
+}
+
+protobuf {
+  protoc {
+    artifact = 'com.google.protobuf:protoc:3.8.0'
+  }
+  generateProtoTasks {
+    all().configureEach { task ->
+      task.builtins {
+        java {
+          option "lite"
+        }
+      }
+    }
+  }
+}
+```
+
+改变生成文件位置
+
+每个内置/插件代码生成器都有一个子目录 `$builtinPluginName`，生成的文件位于 `task.outputBaseDir` 下。默认产生一个文件夹结构，为 `$buildDir/generated/sources/proto/$sourceSet/$builtinPluginName`。
+
+可以在 `generateProtoTasks` 做任务配置的 `builtins/plugins` 块中配置输出位置
+
+```kotlin
+{ task ->
+  task.plugins {
+    grpc {
+      // 使用 'grpcjava' 作为子目录名，而不是默认的 'grpc'
+      outputSubDir = 'grpcjava'
+    }
+  }
+}
+```
+
+Proto 文件在依赖中
+
+如果 Java 工程包含 proto 文件，proto 文件会和 class 一起被打包在 jar 中。
+
+依赖项中的 proto（例如，上游 jar 文件）可以放在编译配置或 protobuf 配置中。
+
+如果作为依赖项放入**编译配置中**，则 proto 文件将被提取到 extracted-include-protos 目录中，并添加到 protoc 命令行的 `--proto_path` 标志中，以便它们可以被当前项目的 `proto` 文件导入。导入的 `proto` 文件将不会被编译，因为它们已经在自己的项目中编译过了。示例：
+
+```kotlin
+dependencies {
+  implementation project(':someProjectWithProtos')
+  testImplementation files("lib/some-testlib-with-protos.jar")
+}
+```
+
+如果作为依赖项放入 **`protobuf` 配置中**，`proto` 文件将被提取到 `extracted-protos` 目录，并作为编译文件添加到 `protoc` 命令行中，与当前项目的 `proto` 文件（如果有）一起通过 `protoc` 编译。示例：
+
+```kotlin
+dependencies {
+  // proto 文件可以来自本地的包
+  protobuf files('lib/protos.tar.gz')
+  // 来自本地目录,
+  protobuf files('ext/')   // 不要使用 fileTree(). 看 issue #248.
+  // 来自存储库中的工件
+  testProtobuf 'com.example:published-protos:1.0.0'
+}
+```
+
+这个 [Maven Central 目录](https://repo1.maven.org/maven2/com/google/protobuf/protoc/)列出了可以被此插件使用的预编译 protoc 工件。
+
+idea 设置
+
+确保将 IDE `build/run` 操作委托给 `Gradle`，这样 IntelliJ 就不会使用其内部构建机制来编译源代码。此插件确保代码生成发生在 Gradle 构建步骤之前。如果此设置关闭，将使用 IntelliJ 自己的构建系统而不是 Gradle。
+
+启用设置：
+
+```bash
+Settings -> Build, Execution, Deployment
+  -> Build Tools -> Gradle -> Runner
+  -> Delegate IDE build/run actions to gradle.
+```
+
+此插件与 IDEA 插件集成，并自动将 proto 文件和生成的 Java 代码注册为源文件。
 
 
 

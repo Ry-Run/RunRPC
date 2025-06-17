@@ -7,11 +7,13 @@ zookeeper = "3.9.0"
 curator = "5.8.0"
 junit = "5.10.0"
 launcher = "1.13.1"
+protoc = "4.31.1"
 
 [libraries]
 # Kotlin
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
 kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", version.ref = "kotlin" }
+protoc = { module = "com.google.protobuf:protoc", version.ref = "protoc"}
 
 # 网络与工具
 netty-all = { module = "io.netty:netty-all", version.ref = "netty" }
