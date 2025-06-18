@@ -1,3 +1,5 @@
+import com.google.protobuf.gradle.remove
+
 plugins {
     id("java-common-conventions")
     alias(libs.plugins.protobuf.plugin)
@@ -21,10 +23,15 @@ protobuf {
         all().forEach {
             it.builtins {
                 // 生成 Java 代码
-                named("java") { option("lite") }
+                named("java") {
+                    option("lite")
+                }
                 // 生成 Kotlin 代码
-//                named("kotlin") { option("lite") }
-//                kotlin {}
+//                create("kotlin") { }
+                register("kotlin") {
+                    outputSubDir = "kotlin"
+                }
+                remove("java")
             }
         }
     }

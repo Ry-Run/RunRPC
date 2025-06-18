@@ -13,6 +13,7 @@ protoc = "4.31.1"
 # Kotlin
 kotlin-reflect = { module = "org.jetbrains.kotlin:kotlin-reflect", version.ref = "kotlin" }
 kotlin-test-junit5 = { module = "org.jetbrains.kotlin:kotlin-test-junit5", version.ref = "kotlin" }
+# 提供编译器
 protoc = { module = "com.google.protobuf:protoc", version.ref = "protoc"}
 
 # 网络与工具

@@ -1,6 +1,6 @@
 # Protobuf 工程实践
 
-## 命名标准
+# proto 文件的命名标准
 
 标准文件格式
 
@@ -61,11 +61,31 @@ service FooService {
 
 有关更多与服务相关的指南，请参阅 [为每个方法创建唯一的 Protos](https://protobuf.dev/best-practices/api#unique-protos) 和 [不要在顶级请求或响应 Proto 中包含原始类型](https://protobuf.dev/programming-guides/api#dont-include-primitive-types) 在 API 最佳实践主题中，以及 [在单独的文件中定义消息类型](https://protobuf.dev/best-practices/dos-donts#separate-files) 在 Proto 最佳实践中。
 
----------
+# protobuf 的 gradle 插件
 
-## 工程实践
+## protobuf 依赖及其关系
 
-### 编译工程 proto 文件：
+- **com.google.protobuf:protobuf-kotlin**
+
+  核心运行时库，提供基础 API，实现序列化/反序列化逻辑。包含跨语言支持的基础设施
+
+- **com.google.protobuf:protoc**
+
+  Protobuf 的编译器，调用语言特定的代码生成器，生成目标语言的数据结构
+
+- id：**com.google.protobuf**
+
+  protobuf 的 gradle 插件
+
+```mermaid
+graph TD
+    A[protobuf Gradle插件<br>com.google.protobuf] -->|管理| B[protoc编译器<br>com.google.protobuf:protoc]
+    A -->|管理| C[Kotlin生成器<br>com.google.protobuf:protobuf-kotlin]
+    C -->|依赖| D[protobuf Java运行时<br>com.google.protobuf:protobuf-java]
+    D -->|基础| E[protobuf核心库<br>com.google.protobuf]
+```
+
+## 简介
 
 [Protobuf 插件](https://github.com/google/protobuf-gradle-plugin)做了两个事：
 
@@ -73,7 +93,7 @@ service FooService {
 - 将生成的 java 源文件添加到 java 的编译单元，一起编译
   - 注意，需要生成非 Java/Kotlin 源文件，它们不会自动包含在编译中，需要将它们添加到特定语言的源文件中。查看 [默认输出](https://github.com/google/protobuf-gradle-plugin#default-outputs)
 
-添加插件到工程
+## 添加插件到工程
 
 ```kotlin
 // libs.versions.toml
@@ -91,7 +111,7 @@ plugins {
 }
 ```
 
-配置 protobuf 插件
+## 配置 protobuf 插件
 
 Protobuf 插件假定 .proto 与 Java 源文件相同，均位于源集（sourceSets）中（如 main/test）。一个源集的所有 `.proto` 文件会被一次性编译，生成的 `java` 文件又作为该源集的 Java 编译任务的输入。该插件会为每个源集（`sourceSet`）新增名为 `proto` 的源码块（与 `java` 块同级），目录结构镜像：`src/main/java` ↔ `src/main/proto`。默认情况下，它会自动包含 `src/$sourceSetName/proto` 目录下的所有 `*.proto` 文件。
 
@@ -99,7 +119,7 @@ Protobuf 插件假定 .proto 与 Java 源文件相同，均位于源集（source
 
 配置sourceSets的目的在于告诉插件proto文件的位置（引用外部协议库、需要排除特定文件）
 
-```kot
+```kotlin
 sourceSets {
     main {  // 主源集
         proto {  // Protobuf 配置块
@@ -127,7 +147,7 @@ sourceSets {
 }
 ```
 
-配置编译器
+## 配置编译器
 
 ```kotlin
 // 插件提供 protobuf 块，提供了所有的配置选项
@@ -169,10 +189,12 @@ Protobuf 插件为每个源集上运行的 protoc 生成一个任务。任务有
 
 必须配置这些任务在 `generateProtoTasks` 块中，该块会提供代码生成器方法访问这些任务。同时也确保你的配置会被插件正确的设置。
 
-禁止事项：
+## 禁止事项
 
 - 不要使用任务名，它们会改变
 - 不要配置任务在  `generateProtoTasks` 块外，因为在配置任务的时候，会有细微的时间方面的限制
+
+## 生成的任务
 
 ```kotlin
 protobuf {
@@ -207,7 +229,20 @@ protobuf {
 - `builtins`：`protoc` 中内置的代码生成器,如 `java`, `cpp`, `python`.
 - `plugins`：和 `protoc` 一起工作的代码生成器插件，如 `grpc`。为了添加任务，它们必须定义在`protobuf.plugins` 块中。
 
-配置生成的代码类型，和生成器的选项
+## 配置生成的代码类型，和生成器的选项
+
+```mermaid
+graph TD
+    A[protoc 编译器] --> B[内置生成器 builtins]
+    A --> C[插件 plugins]
+    B --> D[Java 生成器]
+    B --> E[CPP 生成器]
+    B --> F[Python 生成器]
+    C --> G[gRPC 插件]
+    C --> H[其他自定义插件]
+```
+
+
 
 每个内置的/插件的代码生成器生成指定类型的代码。在任务中添加或配置内置/插件代码生成器，使用大括号 `{}` 列出它们的名字。把配置选项放入大括号中：
 
@@ -216,9 +251,9 @@ task.builtins {
   // 在 protoc 最新版本中，这里的结果是在 protoc 命令行添加
   // "--java_out=/path/to/output --java_opt=example_option1=true,example_option2"
   // 使用 protoc 内置的 Java 生成器。生成 java 文件
-  java {
-    option 'example_option1=true' // 插件版本：0.9.5，java 这里的 option 用不了，其他的版本好像可以，反正官网写了
-    option 'example_option2'
+  named("java") {
+    option("example_option1=true")
+    option("example_option2")
   }
   // 使用 protoc 内置的 c++ 生成器。生成 c++
   cpp { }
@@ -228,13 +263,23 @@ task.plugins {
   // 添加 grpc 的输出，但不包括任何选项。protobuf 插件的 plugins 块中必须定义了 grpc 插件
   // 这里的结果是在 protoc 命令行添加
   // "--grpc_out=/path/to/output"
-  grpc { }
+  id("grpc") { }
 }
 ```
 
-默认输出：
+## 默认代码生成器
 
-java 工程：内置的 java 代码生成器会默认添加，所以 build 时也会默认生成 class
+java 工程中：内置的 java 代码生成器会默认添加，所以 build 时也会默认生成 class。不需要可以移除：
+
+```kotlin
+
+task.builtins {
+    // 添加生成 python 的命令
+    python { }
+    // 移除生成 java 的 命令
+    remove("java")
+}
+```
 
 从 Protobuf 3.8.0 开始，lite code（轻量级代码）内置在 protoc 的 java 输出中，例如：
 
@@ -251,9 +296,15 @@ protobuf {
   generateProtoTasks {
     all().configureEach { task ->
       task.builtins {
-        java {
-          option "lite"
+        // 默认就有，所以通过 named 从 NamedDomainObjectContainer 获取出来，进行特殊配置 lite
+        named("java") {
+            option("lite")
         }
+        // java 已经在插件自己的 NamedDomainObjectContainer 注册好了，kotlin 还没有
+        // 所以，要配置 kotlin 代码生成器，需要添加
+        create("kotlin") { } // 直接创建
+        // 或
+        register("kotlin") { } // 延迟注册，性能更优
       }
       task.plugins {
         // 不要在 {} 中添加东西，否则不会被添加。这是由于 NamedDomainObjectContainer 在绑定方法时的隐式机制所致
@@ -264,7 +315,10 @@ protobuf {
 }
 ```
 
-改变生成文件位置
+- Protobuf 插件检测到 Java 插件（Kotlin 插件依赖  Java 插件）存在，会自动将生成的代码添加到源集（默认路径就在源集下 `src/main/proto`）。生成 proto 代码的任务会自动成为 `compileJava`/`compileKotlin` 的依赖，确保代码生成在编译前完成。
+- 例如：python 就不会，生成的 Python 代码不会包含在编译中，需要手动添加到 Python 的编译任务中。
+
+## 代码生成位置
 
 每个内置/插件代码生成器都有一个子目录 `$builtinPluginName`，生成的文件位于 `task.outputBaseDir` 下。默认产生一个文件夹结构，为 `$buildDir/generated/sources/proto/$sourceSet/$builtinPluginName`。
 
@@ -281,7 +335,7 @@ protobuf {
 }
 ```
 
-Proto 文件在依赖中
+## Proto 文件在依赖中
 
 如果 Java 工程包含 proto 文件，proto 文件会和 class 一起被打包在 jar 中。
 
@@ -311,7 +365,7 @@ dependencies {
 
 这个 [Maven Central 目录](https://repo1.maven.org/maven2/com/google/protobuf/protoc/)列出了可以被此插件使用的预编译 protoc 工件。
 
-idea 设置
+## idea 设置
 
 确保将 IDE `build/run` 操作委托给 `Gradle`，这样 IntelliJ 就不会使用其内部构建机制来编译源代码。此插件确保代码生成发生在 Gradle 构建步骤之前。如果此设置关闭，将使用 IntelliJ 自己的构建系统而不是 Gradle。
 
@@ -325,7 +379,17 @@ Settings -> Build, Execution, Deployment
 
 此插件与 IDEA 插件集成，并自动将 proto 文件和生成的 Java 代码注册为源文件。
 
+## 参考
+
+[kotlin 代码生成器](https://github.com/protocolbuffers/protobuf/blob/main/src/google/protobuf/compiler/kotlin/README.md)
+
 [kotlin DSL 项目示例](https://github.com/google/protobuf-gradle-plugin/tree/master/examples/exampleKotlinDslProject)
+
+
+
+
+
+# 工程实践
 
 
 
