@@ -15,4 +15,17 @@ protobuf {
     protoc {
         artifact = libs.protoc.get().toString()
     }
+
+    // 代码生成器配置
+    generateProtoTasks {
+        all().forEach {
+            it.builtins {
+                // 生成 Java 代码
+                named("java") { option("lite") }
+                // 生成 Kotlin 代码
+//                named("kotlin") { option("lite") }
+//                kotlin {}
+            }
+        }
+    }
 }

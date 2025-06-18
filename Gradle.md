@@ -853,3 +853,129 @@ Gradle 所有的发行版：
 [BuildSrc 共享构建逻辑，即约定配置，替代跨项目配置](https://docs.gradle.org/current/userguide/sharing_build_logic_between_subprojects.html)
 
 版本目录仅对主项目（根项目）及其子模块（`subprojects`）的构建脚本（`build.gradle.kts`）生效，**不适用于 `buildSrc` 项目** 。
+
+
+
+# 4. 工程中的实践
+
+- 工程根目录
+
+  - `settings.gradle.kts`
+
+    ```kotlin
+    rootProject.name = "projectName"
+    include(
+        "api",
+        "home",
+        "gate",
+        "common",
+        "protocol",
+        "tools",
+        "thirdparty",
+        "opshell",
+        "data",
+        "frameMatch"
+    )
+    
+    // 配置 Gradle 插件管理仓库，优先级高于项目级 build.gradle.kts 中的仓库配置
+    // pluginManagement 块用于定义从哪里下载 Gradle 插件，当 Gradle 需要插件时，按顺序检查这些仓库
+    pluginManagement {
+        // 仓库配置，定义插件下载的仓库地址列表
+        repositories {
+            // nexus repository oss 仓库地址
+            val nexusUrl: String = File("${rootProject.projectDir}/nexus-repo-url.txt").readText().trim()
+            // 仓库 1
+            maven {
+                isAllowInsecureProtocol = true // 允许 HTTP 协议
+                url = uri("$nexusUrl/gradle-plugins") // 
+            }
+            // 仓库 2
+            maven {
+                isAllowInsecureProtocol = true
+                url = uri("$nexusUrl/snapshots/")
+            }
+        }
+    }
+    ```
+
+  - 版本目录
+
+  - **Gradle 运行时属性在某些情况下可代替版本目录**
+
+    作用在 settings 和 初始化脚本，有两种定义方式：
+
+    - [工程属性](https://docs.gradle.org/current/userguide/build_environment.html#sec:project_properties)是全局的，在 `root/gradle.properties` 中定义版本号（还可以命令行参数指定），可在项目及其子项目的 `build.gradle` 中引用：
+
+      ```kotlin
+      kotlin.daemon.jvm.options=-Xmx8G
+      org.gradle.jvmargs=-Xmx8G -XX:+HeapDumpOnOutOfMemoryError -Dfile.encoding=UTF-8
+      
+      kotlin.code.style=official
+      #lib
+      libVersion=hotd-1.0.2
+      # akka
+      akkaVersion=2.6.21
+      # netty
+      nettyVersion=4.1.96.Final
+      # gradle zk root
+      zk_root=hotd_global
+      ```
+
+    - [额外属性](https://docs.gradle.org/current/userguide/writing_build_scripts.html#sec:extra_properties)在 `build.gradle.kts` **通过 `extra` 定义**
+
+      ```kotlin
+      extra["myProperty"] = "myProperty"
+      ```
+
+    - 访问属性的方式
+
+      ```kotlin
+      // build 脚本中
+      val akkaVersion: String by project
+      val nettyVersion: String by project
+      
+      val myProperty: String by project  
+      val myNullableProperty: String? by project
+      
+      tasks {
+          test {
+              val reportType by extra("dev")  // 定义属性
+          }
+      
+          register<Zip>("archiveTestReports") {
+              val reportType: String by test.get().extra  // 访问属性
+              archiveAppendix = reportType
+          }
+      }
+      ```
+
+- buildSrc
+
+  - `src/main/kotlin/constants`：管理常量
+
+    ```kotlin
+    const val KOTLIN_VERSION = "2.1.20"
+    const val CONSOLE_LOG_OPTION = "-Dconsole_log=true"
+    const val JAVA_NIO = "java.base/java.nio=ALL-UNNAMED"
+    
+    //项目包含模块
+    val gameWorldProjects = listOf(
+        "common", "gate", "home", "api", "data"
+    )
+    
+    //需要热更的模块
+    val needPatchProjects = listOf(
+        "gate", "home", "thirdparty"
+    )
+    
+    //不需要打包的模块
+    val noDistProjects = listOf("opshell")
+    ```
+
+
+
+Now in Android 和我公司的应用都用 Version Catalogs 加上 convention plugins。你只需要在模块里用 convention plugins 注册 catalogs 就行了。
+
+你可以看看 Now in Android 的仓库： https://github.com/android/nowinandroid
+
+他们甚至在 Convention Plugins 里面获取版本号。他们有一个扩展在这里： https://github.com/android/nowinandroid/blob/main/build-logic/convention/src/main/kotlin/com/google/samples/apps/nowinandroid/ProjectExtensions.kt

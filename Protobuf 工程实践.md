@@ -207,20 +207,21 @@ protobuf {
 - `builtins`：`protoc` 中内置的代码生成器,如 `java`, `cpp`, `python`.
 - `plugins`：和 `protoc` 一起工作的代码生成器插件，如 `grpc`。为了添加任务，它们必须定义在`protobuf.plugins` 块中。
 
-配置生成什么
+配置生成的代码类型，和生成器的选项
 
-每个内置的/插件的代码生成器生成确定类型的代码。在任务中添加或配置内置/插件代码生成器，使用大括号 `{}` 列出它们的名字。把配置选项放入大括号中：
+每个内置的/插件的代码生成器生成指定类型的代码。在任务中添加或配置内置/插件代码生成器，使用大括号 `{}` 列出它们的名字。把配置选项放入大括号中：
 
 ```kotlin
 task.builtins {
   // 在 protoc 最新版本中，这里的结果是在 protoc 命令行添加
-  // "--java_out=example_option1=true,example_option2:/path/to/output"
-  // 等于
   // "--java_out=/path/to/output --java_opt=example_option1=true,example_option2"
+  // 使用 protoc 内置的 Java 生成器。生成 java 文件
   java {
-    option 'example_option1=true'
+    option 'example_option1=true' // 插件版本：0.9.5，java 这里的 option 用不了，其他的版本好像可以，反正官网写了
     option 'example_option2'
   }
+  // 使用 protoc 内置的 c++ 生成器。生成 c++
+  cpp { }
 }
 
 task.plugins {
@@ -253,6 +254,10 @@ protobuf {
         java {
           option "lite"
         }
+      }
+      task.plugins {
+        // 不要在 {} 中添加东西，否则不会被添加。这是由于 NamedDomainObjectContainer 在绑定方法时的隐式机制所致
+        id("grpc") { }
       }
     }
   }
@@ -320,7 +325,7 @@ Settings -> Build, Execution, Deployment
 
 此插件与 IDEA 插件集成，并自动将 proto 文件和生成的 Java 代码注册为源文件。
 
-
+[kotlin DSL 项目示例](https://github.com/google/protobuf-gradle-plugin/tree/master/examples/exampleKotlinDslProject)
 
 
 
